@@ -72,15 +72,6 @@ AFRAME.registerComponent('magic-dress', {
           });
         }
       });
-      model.traverse(function(child){
-        if(child.isMesh){
-          child.material.color.set(0xff0000);
-          if(child.material.emissive){
-            child.material.emissive.set(0xff0000);
-            child.material.emissiveIntensity = 3;
-          }
-        }
-      });
     }
   },
 
@@ -268,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
       magic-dress
       gltf-model="#dressModel"
       position="0 0 0"
-      rotation="0 180 0"
+      rotation="-90 0 0"
       scale="0.00005 0.00005 0.00005">
     </a-entity>
 </a-scene>
