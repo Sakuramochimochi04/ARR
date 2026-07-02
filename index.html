@@ -72,24 +72,15 @@ AFRAME.registerComponent('magic-dress', {
           });
         }
       });
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3();
-      const center = new THREE.Vector3();
-      
-      box.getSize(size);
-      box.getCenter(center);
-      
-      model.position.sub(center);
-      
-      const maxSize = Math.max(size.x, size.y, size.z);
-      const scale = 0.25 / maxSize;
-      
-      model.scale.setScalar(scale);
-      
-      model.position.y += (size.y * scale) / 2;
-      console.log(model);
-      console.log(model.scale);
-      this.el.object3D.scale.set(0.01,0.01,0.01);
+      model.traverse(function(child){
+        if(child.isMesh){
+          child.material.color.set(0xff0000);
+          if(child.material.emissive){
+            child.material.emissive.set(0xff0000);
+            child.material.emissiveIntensity = 3;
+          }
+        }
+      });
     }
   },
 
@@ -276,9 +267,10 @@ document.addEventListener('DOMContentLoaded', function() {
       id="dress"
       magic-dress
       gltf-model="#dressModel"
-      scale="0.001 0.001 0.001"
+      position="0 0 0"
       rotation="0 180 0"
-    ></a-entity
+      scale="0.0005 0.0005 0.0005">
+    </a-entity>
 </a-scene>
 
 </body>
