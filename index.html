@@ -86,7 +86,7 @@ AFRAME.registerComponent('magic-dress', {
 
   spawnSparkles: function () {
     var THREE = this.THREE;
-    var count = 500;
+    var count = 250;
     var positions = new Float32Array(count * 3);
     var colors = new Float32Array(count * 3);
     this.sparkleData = [];
@@ -156,7 +156,8 @@ AFRAME.registerComponent('magic-dress', {
 
       for (var ci = 0; ci < this.origColors.length; ci++) {
         // ドレスを少しふわっと大きくする
-        var s = 1 + eased * 0.12;   // 最終的に約8%大きくなる
+        var baseScale = 0.00005;
+        var s = baseScale * (1 + eased * 0.12);
         this.el.object3D.scale.set(s, s, s);
         var entry = this.origColors[ci];
         var m = entry.mat;
@@ -265,6 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
       rotation="90 0 0"
       scale="0.00005 0.00005 0.00005">
     </a-entity>
+  </a-entity>
 </a-scene>
 
 </body>
