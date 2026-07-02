@@ -1,0 +1,267 @@
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>魔法のドレス AR</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<style>
+  body { margin:0; padding:0; overflow:hidden; }
+  #ui {
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    display:flex; flex-direction:column; align-items:center; padding-bottom:30px;
+    pointer-events:none; font-family:sans-serif;
+  }
+  #msg {
+    margin-bottom:12px; padding:8px 16px; border-radius:16px;
+    background:rgba(0,0,0,0.6); color:#fff; font-size:13px;
+    max-width:82%; text-align:center; line-height:1.5;
+  }
+  #spellBtn {
+    pointer-events:auto;
+    padding:14px 30px; font-size:16px; border-radius:30px; border:none;
+    background:linear-gradient(135deg,#f6d365,#fda085); color:#3a2a00; font-weight:bold;
+    box-shadow:0 4px 14px rgba(0,0,0,0.35); display:none;
+  }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="msg">読み込み中…（少し時間がかかります）</div>
+  <button id="spellBtn" onclick="castSpell()">✨ 魔法をかける ✨</button>
+</div>
+
+<script>
+AFRAME.registerComponent('magic-dress', {
+  init: function () {
+    this.THREE = AFRAME.THREE;
+    this.transformed = false;
+    this.animating = false;
+    this.animStart = 0;
+    this.sparkles = null;
+    this.sparkleTrail = null;
+    this.trailData = [];
+    this.sparkleData = [];
+    this.idleTime = 0;
+    this.origColors = [];
+    this.modelLoaded = false;
+  },
+
+  events: {
+    'model-loaded': function (evt) {
+      var self = this;
+      var THREE = self.THREE;
+      var model = evt.detail.model;
+      if (!model) return;
+
+      self.modelLoaded = true;
+      document.getElementById('msg').textContent = 'カードの画像にカメラを向けてください';
+
+      model.traverse(function (child) {
+        if (child.isMesh && child.material) {
+          var mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(function (mat) {
+            self.origColors.push({
+              mat: mat,
+              origColor: mat.color ? mat.color.clone() : new THREE.Color(0xffffff)
+            });
+            if (mat.color) mat.color.set(0x8a8378);
+            mat.roughness = 0.9;
+            mat.metalness = 0;
+            if (mat.emissive) mat.emissive.set(0x000000);
+          });
+        }
+      });
+    }
+  },
+
+  castSpell: function () {
+    if (this.transformed || !this.modelLoaded) return;
+    this.transformed = true;
+    this.animStart = Date.now();
+    this.animating = true;
+    this.spawnSparkles();
+    this.spawnTrail();
+  },
+
+  spawnSparkles: function () {
+    var THREE = this.THREE;
+    var count = 200;
+    var positions = new Float32Array(count * 3);
+    var colors = new Float32Array(count * 3);
+    this.sparkleData = [];
+    for (var i = 0; i < count; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var radius = 0.1 + Math.random() * 0.5;
+      var y = Math.random() * 0.9 - 0.1;
+      positions[i*3]   = Math.cos(angle) * radius;
+      positions[i*3+1] = y;
+      positions[i*3+2] = Math.sin(angle) * radius;
+      var r = 0.8 + Math.random() * 0.2;
+      var g = 0.85 + Math.random() * 0.15;
+      var b = 0.7 + Math.random() * 0.3;
+      colors[i*3] = r; colors[i*3+1] = g; colors[i*3+2] = b;
+      this.sparkleData.push({
+        angle:angle, radius:radius, y:y,
+        speed:0.5+Math.random()*1.8,
+        drift:(Math.random()-0.5)*0.3
+      });
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    var mat = new THREE.PointsMaterial({
+      size: 0.025, transparent: true, opacity: 0.9,
+      vertexColors: true, depthWrite: false
+    });
+    this.sparkles = new THREE.Points(geo, mat);
+    this.el.object3D.add(this.sparkles);
+  },
+
+  spawnTrail: function () {
+    var THREE = this.THREE;
+    var count = 160;
+    var positions = new Float32Array(count * 3);
+    this.trailData = [];
+    for (var i = 0; i < count; i++) {
+      var t = i / count;
+      var angle = t * Math.PI * 6;
+      var radius = 0.15 + t * 0.4;
+      var y = t * 0.8 - 0.1;
+      positions[i*3]   = Math.cos(angle) * radius;
+      positions[i*3+1] = y;
+      positions[i*3+2] = Math.sin(angle) * radius;
+      this.trailData.push({baseAngle:angle, radius:radius, baseY:y, phase:t*Math.PI*2});
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    var mat = new THREE.PointsMaterial({
+      color: 0xffffff, size: 0.018, transparent: true, opacity: 0.7, depthWrite: false
+    });
+    this.sparkleTrail = new THREE.Points(geo, mat);
+    this.el.object3D.add(this.sparkleTrail);
+  },
+
+  tick: function () {
+    var d = 0.016;
+    this.idleTime += d;
+
+    if (this.animating) {
+      var elapsed = (Date.now() - this.animStart) / 1000;
+      var t = Math.min(elapsed / 2.8, 1);
+      var eased = t * t * (3 - 2 * t);
+
+      var targetBlue = new AFRAME.THREE.Color(0x8fd1ff);
+      var grayColor  = new AFRAME.THREE.Color(0x8a8378);
+
+      for (var ci = 0; ci < this.origColors.length; ci++) {
+        var entry = this.origColors[ci];
+        var m = entry.mat;
+        m.color.copy(grayColor).lerp(targetBlue, eased);
+        m.roughness = 0.9 - eased * 0.6;
+        m.metalness = eased * 0.15;
+        if (m.emissive) {
+          m.emissive.setRGB(eased * 0.12, eased * 0.15, eased * 0.2);
+        }
+      }
+
+      this.el.object3D.rotation.y = eased * Math.PI * 2;
+
+      if (t >= 1) {
+        this.animating = false;
+        document.getElementById('msg').textContent = '✨ ドレスが完成しました！';
+      }
+    }
+
+    if (this.sparkles) {
+      var pos = this.sparkles.geometry.attributes.position;
+      for (var i = 0; i < this.sparkleData.length; i++) {
+        var p = this.sparkleData[i];
+        p.angle += d * p.speed;
+        p.y += p.drift * d;
+        if (p.y > 0.9) p.y = -0.1;
+        if (p.y < -0.1) p.y = 0.9;
+        pos.setXYZ(i, Math.cos(p.angle) * p.radius, p.y, Math.sin(p.angle) * p.radius);
+      }
+      pos.needsUpdate = true;
+    }
+
+    if (this.sparkleTrail) {
+      var tPos = this.sparkleTrail.geometry.attributes.position;
+      var time = this.idleTime;
+      for (var ti = 0; ti < this.trailData.length; ti++) {
+        var tp = this.trailData[ti];
+        var a = tp.baseAngle + time * 1.2;
+        var r = tp.radius + Math.sin(time * 2 + tp.phase) * 0.04;
+        var y = tp.baseY + Math.sin(time * 1.5 + tp.phase) * 0.03;
+        tPos.setXYZ(ti, Math.cos(a) * r, y, Math.sin(a) * r);
+      }
+      tPos.needsUpdate = true;
+      this.sparkleTrail.rotation.y += d * 0.3;
+    }
+
+    if (this.transformed && !this.animating) {
+      this.el.object3D.rotation.y += d * 0.3;
+    }
+  }
+});
+
+function castSpell() {
+  var el = document.querySelector('[magic-dress]');
+  if (el && el.components['magic-dress']) {
+    el.components['magic-dress'].castSpell();
+    document.getElementById('msg').textContent = '✨ 魔法をかけています… ✨';
+    document.getElementById('spellBtn').style.display = 'none';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var scene = document.querySelector('a-scene');
+  scene.addEventListener('loaded', function() {
+    var target = document.querySelector('[mindar-image-target]');
+    if (target) {
+      target.addEventListener('targetFound', function() {
+        if (document.querySelector('[magic-dress]').components['magic-dress'].modelLoaded) {
+          document.getElementById('msg').textContent = '画像を検出しました！ ボタンを押してください';
+          document.getElementById('spellBtn').style.display = 'block';
+        } else {
+          document.getElementById('msg').textContent = 'モデル読み込み中…しばらくお待ちください';
+        }
+      });
+      target.addEventListener('targetLost', function() {
+        document.getElementById('msg').textContent = 'カードの画像にカメラを向けてください';
+      });
+    }
+  });
+});
+</script>
+
+<a-scene
+  mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;"
+  color-space="sRGB"
+  renderer="colorManagement: true, physicallyCorrectLights"
+  vr-mode-ui="enabled: false"
+  device-orientation-permission-ui="enabled: false"
+>
+  <a-assets>
+    <a-asset-item id="dressModel" src="./dress.glb"></a-asset-item>
+  </a-assets>
+
+  <a-light type="ambient" color="#ffffff" intensity="0.7"></a-light>
+  <a-light type="directional" color="#ffe8d0" intensity="0.9" position="1 2 1"></a-light>
+  <a-light type="point" color="#aaddff" intensity="0.5" position="0 1 0.5"></a-light>
+
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+  <a-entity mindar-image-target="targetIndex: 0">
+    <a-entity
+      magic-dress
+      gltf-model="#dressModel"
+      scale="0.003 0.003 0.003"
+      position="0 0 0"
+    ></a-entity>
+  </a-entity>
+</a-scene>
+
+</body>
+</html>
