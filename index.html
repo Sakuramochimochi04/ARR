@@ -72,6 +72,21 @@ AFRAME.registerComponent('magic-dress', {
           });
         }
       });
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      
+      box.getSize(size);
+      box.getCenter(center);
+      
+      model.position.sub(center);
+      
+      const maxSize = Math.max(size.x, size.y, size.z);
+      const scale = 0.25 / maxSize;
+      
+      model.scale.setScalar(scale);
+      
+      model.position.y += (size.y * scale) / 2;
     }
   },
 
@@ -251,14 +266,14 @@ document.addEventListener('DOMContentLoaded', function() {
   <a-light type="directional" color="#ffe8d0" intensity="0.9" position="1 2 1"></a-light>
   <a-light type="point" color="#aaddff" intensity="0.5" position="0 1 0.5"></a-light>
 
-  <a-camera position="0 -1 0" look-controls="enabled: false"></a-camera>
+  <a-camera look-controls="enabled: false"></a-camera>
 
   <a-entity mindar-image-target="targetIndex: 0">
     <a-entity
       magic-dress
       gltf-model="#dressModel"
-      scale="0.000000001 0.000000001 0.000000001"
-      position="0 -1 0"
+      position="0 0 0"
+      rotation="0 180 0"
     ></a-entity>
   </a-entity>
 </a-scene>
